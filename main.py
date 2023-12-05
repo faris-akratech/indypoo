@@ -7,16 +7,16 @@ from indy.error import ErrorCode, IndyError
 async def run(): 
     print("Indy demo program")
 
-    print("STEP 1")
-    pool = {
-        "name": "pool1"
-    }
+    # print("STEP 1")
+    # pool = {
+    #     "name": "pool1"
+    # }
 
-    print("Open pool ledger: {}".format(pool ['name']))
-    pool ['genesis txn path'] = "pool1.txn"
-    pool ['config'] = json.dumps({"genesis_txn": str(pool ['genesis txn path'])})
+    # print("Open pool ledger: {}".format(pool ['name']))
+    # pool ['genesis txn path'] = "pool1.txn"
+    # pool ['config'] = json.dumps({"genesis_txn": str(pool ['genesis txn path'])})
 
-    print(pool)
+    # print(pool)
 
     # connect to pool
     await pool.set_protocol_version(2)
