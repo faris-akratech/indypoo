@@ -2,7 +2,7 @@ import asyncio
 import json
 
 from indy import pool
-# from indy.error import ErrorCode, IndyError
+from indy.error import ErrorCode, IndyError
 
 async def run(): 
     print("Indy demo program")
