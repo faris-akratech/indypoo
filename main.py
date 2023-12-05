@@ -76,6 +76,10 @@ async def run():
     
     print("STEP 3: Register DID for government")
     
+    print("-------------------------")
+    print("Government Getting Verinym")
+    print("-------------------------")
+    
     government = {
         'name': "Government",
         'wallet_config': json.dumps({ 'id': ' government_wallet '}),
@@ -85,6 +89,36 @@ async def run():
     }
 
     await getting_verinym(steward, government)
+    
+    print("STEP 3: Register DID for university and company")
+    
+    print("-------------------------")
+    print("University Getting Verinym")
+    print("-------------------------")
+    
+    theUniversity = {
+        'name': "theUniversity",
+        'wallet_config': json.dumps({ 'id': ' theUniversity_wallet '}),
+        'wallet_credentials': json.dumps({ 'key': ' theUniversity_wallet_key '}),
+        'pool': pool_handle,
+        'role': 'TRUST_ANCHOR'
+    }
+
+    await getting_verinym(steward, theUniversity)
+    
+    print("-------------------------")
+    print("Copmany Getting Verinym")
+    print("-------------------------")
+    
+    theCompany = {
+        'name': "theCompany",
+        'wallet_config': json.dumps({ 'id': ' theCompany_wallet '}),
+        'wallet_credentials': json.dumps({ 'key': ' theCompany_wallet_key '}),
+        'pool': pool_handle,
+        'role': 'TRUST_ANCHOR'
+    }
+
+    await getting_verinym(steward, theCompany)
 
 
 
