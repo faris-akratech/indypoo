@@ -24,7 +24,7 @@ async def getting_verinym(from_, to):
         'role': to['role'] or None
     }
     
-    await send_nym(from_['pool'], from_['wallet'], from_['did'], from_['info']['did'], from_['info']['verkey'], from_['info'][role])
+    await send_nym(from_['pool'], from_['wallet'], from_['did'], from_['info']['did'], from_['info']['verkey'], from_['info']['role'])
     
 async def send_nym(pool_handle, wallet_handle, _did, new_did, new_key, role ):
     nym_request = await ledger.build_nym_request(_did, new_did, new_key, None, role)
