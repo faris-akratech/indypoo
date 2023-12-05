@@ -1,8 +1,17 @@
 import asyncio
 import json
 
-from indy import pool
+from indy import pool, wallet, did
 from indy.error import ErrorCode, IndyError
+
+async def create_wallet(identity):
+    print("\"{}\" -> Create Wallet".format(identity['name']))
+    try:
+        await wallet.create_wallet(identity['wallet_config'], identity['wallet_credentials'])
+    except IndyError as ex:
+        if ex.error_code == ErrorCode.PoolLedgerConfigAlreadyExistsError:
+            pass
+    identity['wallet'] = await wallet.open_wallet(identity['wallet_config'], identity['wallet_credentials'])
 
 async def run():
     print("Indy demo program")
@@ -35,6 +44,16 @@ async def run():
         'seed': '000000000000000000000000Steward1'
     }
     print(steward)
+
+    await create_wallet(steward)
+
+    print(steward['wallet'])
+
+    steward['did_info'] = json.dumps({ 'seed': steward['seed']})
+    print(steward['did_info'])
+
+    # did:demoindynetwork: Th7MpTaRZVRYnPiabds81Y
+    steward['did'], steward['key'] = await did.create_and_store_my_did(steward['wallet'], steward['did_info'])
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(run())
