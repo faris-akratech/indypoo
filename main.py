@@ -42,12 +42,17 @@ async def ensure_previous_request_applied(pool_handle, checker_request, checker)
             pass
         time.sleep(5)
 
+async def get_cred_def(pool_handle, _did, cred_def_id):
+    get_cred_def_request = await ledger.build_get_cred_def_request(_did, cred_def_id)
+    get_cred_def_response = await ensure_previous_request_applied(pool_handle, get_cred_def_request, lambda response: response['result']['data'] is not None)
+    return await ledger.parse_get_cred_def_response(get_cred_def_response)
+
 # MAIN CODE
 
 async def run():
     print("Indy demo program")
 
-    print("\n\-------------------------")
+    print("\n-------------------------")
     print("STEP 1: Connect to pool")
     print("-------------------------")
 
@@ -68,7 +73,7 @@ async def run():
 
     print(pool_handle)
     
-    print("\n\-------------------------")
+    print("\n-------------------------")
     print("STEP 2: Configuring steward")
     print("-------------------------")
 
@@ -91,11 +96,11 @@ async def run():
     # did:demoindynetwork: Th7MpTaRZVRYnPiabds81Y
     steward['did'], steward['key'] = await did.create_and_store_my_did(steward['wallet'], steward['did_info'])
 
-    print("\n\-------------------------")    
+    print("\n-------------------------")    
     print("STEP 3: Register DID for government")
     print("-------------------------")
 
-    print("\n\Government Getting Verinym")
+    print("\nGovernment Getting Verinym")
     print("-------------------------")
     
     government = {
@@ -108,11 +113,11 @@ async def run():
 
     await getting_verinym(steward, government)
 
-    print("\n\-------------------------")
+    print("\n-------------------------")
     print("STEP 3: Register DID for university and company")
     print("-------------------------")
 
-    print("\n\ University Getting Verinym")
+    print("\nUniversity Getting Verinym")
     print("-------------------------")
     
     theUniversity = {
@@ -125,7 +130,7 @@ async def run():
 
     await getting_verinym(steward, theUniversity)
     
-    print("\n\ Company Getting Verinym")
+    print("\nCompany Getting Verinym")
     print("-------------------------")
     
     theCompany = {
@@ -138,7 +143,7 @@ async def run():
 
     await getting_verinym(steward, theCompany)
 
-    print("\n\ -------------------------")
+    print("\n-------------------------")
     print("STEP 4: Government create credential schema")
     print("-------------------------")
 
@@ -157,7 +162,7 @@ async def run():
     schema_request = await ledger.build_schema_request(government['did'], government['transcript_schema'])
     await ledger.sign_and_submit_request(government['pool'], government['wallet'], government['did'], schema_request)
 
-    print("\n\ -------------------------")
+    print("\n-------------------------")
     print("STEP 5: University creates Transcript Credential Definition")
     print("-------------------------")
 
@@ -182,7 +187,51 @@ async def run():
     
     cred_def_request = await ledger.build_cred_def_request(theUniversity['did'], theUniversity['transcript_cred_def'])
     await ledger.sign_and_submit_request(theUniversity['pool'], theUniversity['wallet'], theUniversity['did'], cred_def_request)
-    print("\n\n", theUniversity['transcript_cred_def_id'], "\n\n")
+    print("\n\n", theUniversity['transcript_cred_def_id'])
+
+    print("\n-------------------------")
+    print("STEP 6: University Issues Transcript Credential to Alice")
+    print("-------------------------")
+
+    # Alice requests credential from university who then gives her the requested data, in a to and fro manner
+
+    print("\nSetting up Alice wallet")
+    alice = {
+        'name': "Alice",
+        'wallet_config': json.dumps({'id': 'alice_wallet'}),
+        'wallet_credentials': json.dumps({'key': 'alice_wallet_key'}),
+        'pool': pool_handle
+    }
+
+    await create_wallet(alice)
+    (alice['did'], alice['key']) = await did.create_and_store_my_did(alice['wallet'], "{}")
+
+    print("\n University creates and sends transcript credential offer to Alice")
+    theUniversity['transcript_cred_offer'] = \
+        await anoncreds.issuer_create_credential_offer(theUniversity['wallet'], theUniversity['transcript_cred_def_id'])
+    
+    # Send the response over the network
+    alice['transcript_cred_offer'] = theUniversity['transcript_cred_offer']
+    print("\n Alice prepares transcript credential request")
+    transcript_cred_offer_object = json.loads(alice['transcript_cred_offer'])
+
+    alice['transcript_schema_id'] = transcript_cred_offer_object['schema_id']
+    alice['transcript_cred_def_id'] = transcript_cred_offer_object['cred_def_id']
+
+    # Alice needs a unique master secret to ensure issuer only issues one credential
+    alice['master_secret_id'] = await anoncreds.prover_create_master_secret(alice['wallet'], None)
+
+    # Credential definition from ledger
+    (alice['theUniversity_transcript_cred_def_id']), alice['theUniversity_transcript_cred_def'] = \
+        await get_cred_def(alice['pool'], alice['did'], alice['transcript_cred_def_id'])
+    
+    # Credential request for theUniversity
+    (alice['transcript_cred_request'], alice['transcript_cred_request_metadata']) = \
+        await anoncreds.prover_create_credential_req(alice['wallet'], alice['did'], alice['transcript_cred_offer'],
+                                                     alice['theUniversity_transcript_cred_def'], alice['master_secret_id'])
+    
+    # Over the network to transfer message from Alice to university
+    theUniversity['transcript_cred_request'] = alice['transcript_cred_request']
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(run())
