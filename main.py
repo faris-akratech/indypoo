@@ -35,7 +35,10 @@ async def send_nym(pool_handle, wallet_handle, _did, new_did, new_key, role ):
 async def run():
     print("Indy demo program")
 
+    print("-------------------------")
     print("STEP 1: Connect to pool")
+    print("-------------------------")
+
     pool_config = {
         "name": "pool1",
         "genesis_txn_path": "pool1.txn",
@@ -52,8 +55,10 @@ async def run():
     pool_handle = await pool.open_pool_ledger(pool_config['name'], None)
 
     print(pool_handle)
-
+    
+    print("-------------------------")
     print("STEP 2: Configuring steward")
+    print("-------------------------")
 
     steward = {
         'name': "Sovrin steward",
@@ -73,10 +78,11 @@ async def run():
 
     # did:demoindynetwork: Th7MpTaRZVRYnPiabds81Y
     steward['did'], steward['key'] = await did.create_and_store_my_did(steward['wallet'], steward['did_info'])
-    
+
+    print("-------------------------")    
     print("STEP 3: Register DID for government")
-    
     print("-------------------------")
+
     print("Government Getting Verinym")
     print("-------------------------")
     
@@ -89,10 +95,11 @@ async def run():
     }
 
     await getting_verinym(steward, government)
-    
-    print("STEP 3: Register DID for university and company")
-    
+
     print("-------------------------")
+    print("STEP 3: Register DID for university and company")
+    print("-------------------------")
+
     print("University Getting Verinym")
     print("-------------------------")
     
@@ -106,7 +113,6 @@ async def run():
 
     await getting_verinym(steward, theUniversity)
     
-    print("-------------------------")
     print("Company Getting Verinym")
     print("-------------------------")
     
@@ -120,8 +126,10 @@ async def run():
 
     await getting_verinym(steward, theCompany)
 
-
+    print("-------------------------")
     print("STEP 4: Government create credential schema")
+    print("-------------------------")
+    
     transcript = {
         'name': 'Transcript',
         'version': '1.2',
