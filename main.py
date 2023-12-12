@@ -83,6 +83,7 @@ async def run():
     print("STEP 3: Register DID for government")
     print("-------------------------")
 
+    print("")
     print("Government Getting Verinym")
     print("-------------------------")
     
@@ -100,6 +101,7 @@ async def run():
     print("STEP 3: Register DID for university and company")
     print("-------------------------")
 
+    print("")
     print("University Getting Verinym")
     print("-------------------------")
     
@@ -129,7 +131,7 @@ async def run():
     print("-------------------------")
     print("STEP 4: Government create credential schema")
     print("-------------------------")
-    
+
     transcript = {
         'name': 'Transcript',
         'version': '1.2',
