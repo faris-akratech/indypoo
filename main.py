@@ -255,7 +255,9 @@ async def run():
     alice['transcript_cred'] = theUniversity['transcript_cred']
     _, alice['transcript_cred_def'] = await get_cred_def(alice['pool'], alice['did'], alice['transcript_cred_def_id'])
     await anoncreds.prover_store_credential(alice['wallet'], None, alice['transcript_cred_request_metadata'], alice['transcript_cred'], alice['transcript_cred_def'], None)
-    
+    print("\n Alice transcript credential\n")
+    print(alice['transcript_cred_def'])
+
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(run())
