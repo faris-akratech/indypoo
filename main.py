@@ -2,8 +2,10 @@ import asyncio
 import json
 import time
 
-from indy import pool, wallet, did, ledger, anoncreds
+from indy import pool, wallet, did, ledger, anoncreds, blob_storage
 from indy.error import ErrorCode, IndyError
+
+from os.path import dirname
 
 async def create_wallet(identity):
     print("\"{}\" -> Create Wallet".format(identity['name']))
@@ -46,6 +48,74 @@ async def get_cred_def(pool_handle, _did, cred_def_id):
     get_cred_def_request = await ledger.build_get_cred_def_request(_did, cred_def_id)
     get_cred_def_response = await ensure_previous_request_applied(pool_handle, get_cred_def_request, lambda response: response['result']['data'] is not None)
     return await ledger.parse_get_cred_def_response(get_cred_def_response)
+
+async def get_credential_for_referent(search_handle, referent):
+    credentials = json.loads(
+        await anoncreds.prover_fetch_credentials_for_proof_req(search_handle, referent, 10))
+    return credentials[0]['cred_info']
+
+async def prover_get_entities_from_ledger(pool_handle, _did, identifiers, actor, timestamp_from=None,
+                                          timestamp_to=None):
+    schemas = {}
+    cred_defs = {}
+    rev_states = {}
+    for item in identifiers.values():
+        print("\"{}\" -> Get Schema from Ledger".format(actor))
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>.", item['schema_id'])
+        (received_schema_id, received_schema) = await get_schema(pool_handle, _did, item['schema_id'])
+        schemas[received_schema_id] = json.loads(received_schema)
+
+        print("\"{}\" -> Get Claim Definition from Ledger".format(actor))
+        (received_cred_def_id, received_cred_def) = await get_cred_def(pool_handle, _did, item['cred_def_id'])
+        cred_defs[received_cred_def_id] = json.loads(received_cred_def)
+
+        if 'rev_reg_id' in item and item['rev_reg_id'] is not None:
+            # Create Revocations States
+            print("\"{}\" -> Get Revocation Registry Definition from Ledger".format(actor))
+            get_revoc_reg_def_request = await ledger.build_get_revoc_reg_def_request(_did, item['rev_reg_id'])
+
+            get_revoc_reg_def_response = \
+                await ensure_previous_request_applied(pool_handle, get_revoc_reg_def_request,
+                                                      lambda response: response['result']['data'] is not None)
+            (rev_reg_id, revoc_reg_def_json) = await ledger.parse_get_revoc_reg_def_response(get_revoc_reg_def_response)
+
+            print("\"{}\" -> Get Revocation Registry Delta from Ledger".format(actor))
+            if not timestamp_to: timestamp_to = int(time.time())
+            get_revoc_reg_delta_request = \
+                await ledger.build_get_revoc_reg_delta_request(_did, item['rev_reg_id'], timestamp_from, timestamp_to)
+            get_revoc_reg_delta_response = \
+                await ensure_previous_request_applied(pool_handle, get_revoc_reg_delta_request,
+                                                      lambda response: response['result']['data'] is not None)
+            (rev_reg_id, revoc_reg_delta_json, t) = \
+                await ledger.parse_get_revoc_reg_delta_response(get_revoc_reg_delta_response)
+
+            tails_reader_config = json.dumps(
+                {'base_dir': dirname(json.loads(revoc_reg_def_json)['value']['tailsLocation']),
+                 'uri_pattern': ''})
+            blob_storage_reader_cfg_handle = await blob_storage.open_reader('default', tails_reader_config)
+
+            print('%s - Create Revocation State', actor)
+            rev_state_json = \
+                await anoncreds.create_revocation_state(blob_storage_reader_cfg_handle, revoc_reg_def_json,
+                                                        revoc_reg_delta_json, t, item['cred_rev_id'])
+            rev_states[rev_reg_id] = {t: json.loads(rev_state_json)}
+
+    return json.dumps(schemas), json.dumps(cred_defs), json.dumps(rev_states)
+
+async def get_schema(pool_handle, _did, schema_id):
+    get_schema_request = await ledger.build_get_schema_request(_did, schema_id)
+    get_schema_response = await ensure_previous_request_applied(
+        pool_handle, get_schema_request, lambda response: response['result']['data'] is not None)
+    return await ledger.parse_get_schema_response(get_schema_response)
+
+
+async def get_cred_def(pool_handle, _did, cred_def_id):
+    get_cred_def_request = await ledger.build_get_cred_def_request(_did, cred_def_id)
+    get_cred_def_response = \
+        await ensure_previous_request_applied(pool_handle, get_cred_def_request,
+                                              lambda response: response['result']['data'] is not None)
+    return await ledger.parse_get_cred_def_response(get_cred_def_response)
+
 
 # MAIN CODE
 
@@ -258,6 +328,83 @@ async def run():
     print("\n Alice transcript credential\n")
     print(alice['transcript_cred_def'])
 
+    print("\n-------------------------")
+    print("STEP 7: Alice makes verifiable presentation to Company")
+    print("-------------------------")
+
+        # Creating application request (presentaion request) --- validator - theCompany
+    nonce = await anoncreds.generate_nonce()
+    theCompany['job_application_proof_request'] = json.dumps({
+        'nonce': nonce,
+        'name': 'Job-Application',
+        'version': '0.1',
+        'requested_attributes': {
+            'attr1_referent': {
+                'name': 'first_name'
+            },
+            'attr2_referent': {
+                'name': 'last_name'
+            },
+            'attr3_referent': {
+                'name': 'degree',
+                'restrictions': [{'cred_def_id': theUniversity['transcript_cred_def_id']}]
+            },
+            'attr4_referent': {
+                'name': 'status',
+                'restrictions': [{'cred_def_id': theUniversity['transcript_cred_def_id']}]
+            },
+            'attr5_referent': {
+                'name': 'ssn',
+                'restrictions': [{'cred_def_id': theUniversity['transcript_cred_def_id']}]
+            },
+            'attr6_referent': {
+                'name': 'phone_number'
+            }
+        },
+        'requested_predicates': {
+            'predicate1_referent': {
+                'name': 'average',
+                'p_type': '>=',
+                'p_value': 4,
+                'restrictions': [{'cred_def_id': theUniversity['transcript_cred_def_id']}]
+            }
+        }
+    })
+
+    # Over network
+    alice['job_application_proof_request'] = theCompany['job_application_proof_request']
+
+    # Alice prepares the presentation
+    search_for_job_application_proof_request = \
+        await anoncreds.prover_search_credentials_for_proof_req(alice['wallet'], alice['job_application_proof_request'], None)
+
+    print("---------------------------")
+    print(search_for_job_application_proof_request)
+    print("---------------------------")
+
+    cred_for_attr1 = await get_credential_for_referent(search_for_job_application_proof_request, 'attr1_referent')
+    cred_for_attr2 = await get_credential_for_referent(search_for_job_application_proof_request, 'attr2_referent')
+    cred_for_attr3 = await get_credential_for_referent(search_for_job_application_proof_request, 'attr3_referent')
+    cred_for_attr4 = await get_credential_for_referent(search_for_job_application_proof_request, 'attr4_referent')
+    cred_for_attr5 = await get_credential_for_referent(search_for_job_application_proof_request, 'attr5_referent')
+    # Predicate is the condition to issue for zero knowledge pool
+    cred_for_predicate1 = \
+        await get_credential_for_referent(search_for_job_application_proof_request, 'predicate1_referent')
+    
+    print("---------------------------")
+    print(cred_for_attr1)
+    print("---------------------------")
+
+    await anoncreds.prover_close_credentials_search_for_proof_req(search_for_job_application_proof_request)
+
+    alice['creds_for_job_application_proof'] = {cred_for_attr1['referent']: cred_for_attr1,
+                                                cred_for_attr2['referent']: cred_for_attr2,
+                                                cred_for_attr3['referent']: cred_for_attr3,
+                                                cred_for_attr4['referent']: cred_for_attr4,
+                                                cred_for_attr5['referent']: cred_for_attr5,
+                                                cred_for_predicate1['referent']: cred_for_predicate1}
+    print("\nCredentials for Alice\n")
+    print(alice['creds_for_job_application_proof'])
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(run())
