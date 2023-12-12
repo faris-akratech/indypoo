@@ -107,7 +107,7 @@ async def run():
     await getting_verinym(steward, theUniversity)
     
     print("-------------------------")
-    print("Copmany Getting Verinym")
+    print("Company Getting Verinym")
     print("-------------------------")
     
     theCompany = {
