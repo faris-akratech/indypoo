@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 
 from indy import pool, wallet, did, ledger, anoncreds
 from indy.error import ErrorCode, IndyError
@@ -31,11 +32,22 @@ async def send_nym(pool_handle, wallet_handle, _did, new_did, new_key, role ):
     print(nym_request)
     await ledger.sign_and_submit_request(pool_handle, wallet_handle, _did, nym_request)
 
+async def ensure_previous_request_applied(pool_handle, checker_request, checker):
+    for _ in range(3):
+        response = json.loads(await ledger.submit_request(pool_handle, checker_request))
+        try:
+            if checker(response):
+                return json.dumps(response)
+        except TypeError:
+            pass
+        time.sleep(5)
+
+# MAIN CODE
 
 async def run():
     print("Indy demo program")
 
-    print("-------------------------")
+    print("\n\-------------------------")
     print("STEP 1: Connect to pool")
     print("-------------------------")
 
@@ -56,7 +68,7 @@ async def run():
 
     print(pool_handle)
     
-    print("-------------------------")
+    print("\n\-------------------------")
     print("STEP 2: Configuring steward")
     print("-------------------------")
 
@@ -79,12 +91,11 @@ async def run():
     # did:demoindynetwork: Th7MpTaRZVRYnPiabds81Y
     steward['did'], steward['key'] = await did.create_and_store_my_did(steward['wallet'], steward['did_info'])
 
-    print("-------------------------")    
+    print("\n\-------------------------")    
     print("STEP 3: Register DID for government")
     print("-------------------------")
 
-    print("")
-    print("Government Getting Verinym")
+    print("\n\Government Getting Verinym")
     print("-------------------------")
     
     government = {
@@ -97,12 +108,11 @@ async def run():
 
     await getting_verinym(steward, government)
 
-    print("-------------------------")
+    print("\n\-------------------------")
     print("STEP 3: Register DID for university and company")
     print("-------------------------")
 
-    print("")
-    print("University Getting Verinym")
+    print("\n\ University Getting Verinym")
     print("-------------------------")
     
     theUniversity = {
@@ -115,7 +125,7 @@ async def run():
 
     await getting_verinym(steward, theUniversity)
     
-    print("Company Getting Verinym")
+    print("\n\ Company Getting Verinym")
     print("-------------------------")
     
     theCompany = {
@@ -128,7 +138,7 @@ async def run():
 
     await getting_verinym(steward, theCompany)
 
-    print("-------------------------")
+    print("\n\ -------------------------")
     print("STEP 4: Government create credential schema")
     print("-------------------------")
 
@@ -147,7 +157,32 @@ async def run():
     schema_request = await ledger.build_schema_request(government['did'], government['transcript_schema'])
     await ledger.sign_and_submit_request(government['pool'], government['wallet'], government['did'], schema_request)
 
+    print("\n\ -------------------------")
+    print("STEP 5: University creates Transcript Credential Definition")
+    print("-------------------------")
 
+    # Get Schema from ledger
+    get_schema_request = await ledger.build_get_schema_request(theUniversity['did'], transcript_schema_id)
+    get_schema_response = await ensure_previous_request_applied(
+        theUniversity['pool'], get_schema_request, lambda response: response['result']['data'] is not None
+    )
+    (theUniversity['transcript_schema_id'], theUniversity['transcript_schema']) = await ledger.parse_get_schema_response(get_schema_response)
+
+    # Transcript credential defenition
+    transcript_cred_def = {
+        'tag': 'TAG1',
+        'type': 'CL',   # Algorithm for signing, indy only supports this
+        'config': {"support_revocation": False}
+    }
+
+    (theUniversity['transcript_cred_def_id'], theUniversity['transcript_cred_def']) = \
+        await anoncreds.issuer_create_and_store_credential_def(theUniversity['wallet'], theUniversity['did'], 
+                                                               theUniversity['transcript_schema'], transcript_cred_def['tag'], transcript_cred_def['type'], 
+                                                               json.dumps(transcript_cred_def['config']))
     
+    cred_def_request = await ledger.build_cred_def_request(theUniversity['did'], theUniversity['transcript_cred_def'])
+    await ledger.sign_and_submit_request(theUniversity['pool'], theUniversity['wallet'], theUniversity['did'], cred_def_request)
+    print("\n\n", theUniversity['transcript_cred_def_id'], "\n\n")
+
 loop = asyncio.get_event_loop()
 loop.run_until_complete(run())
