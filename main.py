@@ -1,7 +1,7 @@
 import asyncio
 import json
 
-from indy import pool, wallet, did, ledger
+from indy import pool, wallet, did, ledger, anoncreds
 from indy.error import ErrorCode, IndyError
 
 async def create_wallet(identity):
@@ -120,6 +120,22 @@ async def run():
 
     await getting_verinym(steward, theCompany)
 
+
+    print("STEP 4: Government create credential schema")
+    transcript = {
+        'name': 'Transcript',
+        'version': '1.2',
+        'attributes': ['first_name', 'last_name', 'degree', 'status', 'year', 'average', 'ssn']
+    }
+
+    (government['transcript_schema_id'], government['transcript_schema']) = \
+        await anoncreds.issuer_create_schema(government['did'], transcript['name'], transcript['version'], json.dumps(transcript['attributes']))
+
+    print(government['transcript_schema'])
+    transcript_schema_id = government['transcript_schema_id']
+
+    schema_request = await ledger.build_schema_request(government['did'], government['transcript_schema'])
+    await ledger.sign_and_submit_request(government['pool'], government['wallet'], government['did'], schema_request)
 
 
     
