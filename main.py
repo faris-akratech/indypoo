@@ -233,5 +233,29 @@ async def run():
     # Over the network to transfer message from Alice to university
     theUniversity['transcript_cred_request'] = alice['transcript_cred_request']
 
+    print("\n University issues credential to Alice")
+    # We can use almost any encoding scheme
+    theUniversity['alice_transcript_cred_values'] = json.dumps({
+        "first_name": {"raw": "Alice", "encoded": "1139481716457488690172217916278103335"},
+        "last_name": {"raw": "Garcia", "encoded": "5321642780241790123587902456789123452"},
+        "degree": {"raw": "Bachelor of Science, Marketing", "encoded": "12434523576212321"},
+        "status": {"raw": "graduated", "encoded": "2213454313412354"},
+        "ssn": {"raw": "123-45-6789", "encoded": "3124141231422543541"},
+        "year": {"raw": "2015", "encoded": "2015"},
+        "average": {"raw": "5", "encoded": "5"}
+    })
+    theUniversity['transcript_cred'], _,_ = \
+        await anoncreds.issuer_create_credential(theUniversity['wallet'], theUniversity['transcript_cred_offer'], theUniversity['transcript_cred_request'],
+                                                 theUniversity['alice_transcript_cred_values'], None, None)
+    
+    print("\nUniversity transcript credential\n")
+    print(theUniversity['transcript_cred'])
+
+    # Over the network
+    alice['transcript_cred'] = theUniversity['transcript_cred']
+    _, alice['transcript_cred_def'] = await get_cred_def(alice['pool'], alice['did'], alice['transcript_cred_def_id'])
+    await anoncreds.prover_store_credential(alice['wallet'], None, alice['transcript_cred_request_metadata'], alice['transcript_cred'], alice['transcript_cred_def'], None)
+    
+
 loop = asyncio.get_event_loop()
 loop.run_until_complete(run())
