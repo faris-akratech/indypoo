@@ -168,6 +168,25 @@ async def prover_get_entities_from_ledger(pool_handle, _did, identifiers, actor,
 
     return json.dumps(schemas), json.dumps(cred_defs), json.dumps(rev_states)
 
+async def run():
+    pool_config = {
+        "name": "pool1",
+        "genesis_txn_path": "pool1.txn",
+        "config": json.dumps({"genesis_txn": "pool1.txn"})
+    }
+
+    # connect to pool
+    await pool.set_protocol_version(2)
+    try:
+        await pool.create_pool_ledger_config(pool_config['name'], pool_config['config'])
+    except IndyError as ex:
+        if ex.error_code == ErrorCode.PoolLedgerConfigAlreadyExistsError:
+            pass
+    pool_handle = await pool.open_pool_ledger(pool_config['name'], None)
+
+    print(pool_handle)
+
+run()
 
 class CreatePool(BaseModel):
     """
