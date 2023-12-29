@@ -540,7 +540,7 @@ async def run():
     print("\"theCompany\" -> Verify \"Job-Application\" Proof from Alice")
     assert 'Bachelor of Science, Marketing' == \
            job_application_proof_object['requested_proof']['revealed_attrs']['attr3_referent']['raw']
-    assert 'graduated' == \
+    assert 'gradupated' == \
            job_application_proof_object['requested_proof']['revealed_attrs']['attr4_referent']['raw']
     assert '123-45-6789' == \
            job_application_proof_object['requested_proof']['revealed_attrs']['attr5_referent']['raw']
