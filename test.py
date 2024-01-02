@@ -215,98 +215,113 @@ async def create_wallet_1():
 
 @app.route("/register_dids_government", methods=["POST"])
 async def register_dids_government():
-    data = request.get_json()
+    try: 
+        data = request.get_json()
 
-    government = {
-        'name': data['name'],
-        'wallet_config': json.dumps({'id': data['wallet_config']}),
-        'wallet_credentials': json.dumps({'key': data['wallet_credentials']}),
-        'pool': pool_['handle'],
-        'role': data['role']
-    }
+        government = {
+            'name': data['name'],
+            'wallet_config': json.dumps({'id': data['wallet_config']}),
+            'wallet_credentials': json.dumps({'key': data['wallet_credentials']}),
+            'pool': pool_['handle'],
+            'role': data['role']
+        }
 
-    # Assuming getting_verinym is a function that does the work
-    await getting_verinym(data['steward'], government)
+        # Assuming getting_verinym is a function that does the work
+        await getting_verinym(data['steward'], government)
 
-    return jsonify({"status_code": 200, "detail": "Success"})
+        return jsonify({"status_code": 200, "detail": "Success"})
+    except Exception as e:
+        print(e)
 
 @app.route("/register_dids_university", methods=["POST"])
 async def register_dids_university():
-    data = request.get_json()
+    try:
+        data = request.get_json()
 
-    the_university = {
-        'name': data['name'],
-        'wallet_config': json.dumps({'id': data['wallet_config']}),
-        'wallet_credentials': json.dumps({'key': data['wallet_credentials']}),
-        'pool': pool_['handle'],
-        'role': data['role']
-    }
+        the_university = {
+            'name': data['name'],
+            'wallet_config': json.dumps({'id': data['wallet_config']}),
+            'wallet_credentials': json.dumps({'key': data['wallet_credentials']}),
+            'pool': pool_['handle'],
+            'role': data['role']
+        }
 
-    await getting_verinym(data['steward'], the_university)
+        await getting_verinym(data['steward'], the_university)
 
-    return jsonify({"status_code": 200, "detail": "Success"})
+        return jsonify({"status_code": 200, "detail": "Success"})
+    except Exception as e:
+            print(e)
 
 
 @app.route("/register_dids_company", methods=["POST"])
 async def register_dids_company():
-    data = request.get_json()
+    try:
+        data = request.get_json()
 
-    the_company = {
-        'name': data['name'],
-        'wallet_config': json.dumps({'id': data['wallet_config']}),
-        'wallet_credentials': json.dumps({'key': data['wallet_credentials']}),
-        'pool': pool_['handle'],
-        'role': data['role']
-    }
+        the_company = {
+            'name': data['name'],
+            'wallet_config': json.dumps({'id': data['wallet_config']}),
+            'wallet_credentials': json.dumps({'key': data['wallet_credentials']}),
+            'pool': pool_['handle'],
+            'role': data['role']
+        }
 
-    await getting_verinym(data['steward'], the_company)
+        await getting_verinym(data['steward'], the_company)
 
-    return jsonify({"status_code": 200, "detail": "Success"})
+        return jsonify({"status_code": 200, "detail": "Success"})
+    except Exception as e:
+        print(e)
 
 @app.route("/government_transcript_schema", methods=["POST"])
 async def government_transcript_schema():
-    data = request.get_json()
+    try:
+        data = request.get_json()
 
-    transcript = {
-        'name': data['name'],
-        'version': data['version'],
-        'attributes': data['attributes']
-    }
+        transcript = {
+            'name': data['name'],
+            'version': data['version'],
+            'attributes': data['attributes']
+        }
 
-    (request.government['transcript_schema_id'], request.government['transcript_schema']) = \
-        await anoncreds.issuer_create_schema(request.government['did'], transcript['name'], transcript['version'],
-                                             json.dumps(transcript['attributes']))
-    
-    schema_request = await ledger.build_schema_request(request.government['did'], request.government['transcript_schema'])
-    await ledger.sign_and_submit_request(request.government['pool'], request.government['wallet'], request.government['did'], schema_request)
+        (request.government['transcript_schema_id'], request.government['transcript_schema']) = \
+            await anoncreds.issuer_create_schema(request.government['did'], transcript['name'], transcript['version'],
+                                                json.dumps(transcript['attributes']))
+        
+        schema_request = await ledger.build_schema_request(request.government['did'], request.government['transcript_schema'])
+        await ledger.sign_and_submit_request(request.government['pool'], request.government['wallet'], request.government['did'], schema_request)
 
-    return jsonify({"status_code": 200, "detail": "Success"})
+        return jsonify({"status_code": 200, "detail": "Success"})
+    except Exception as e:
+        print(e)
 
 @app.route("/university_credential_definition", methods=["POST"])
 async def university_credential_definition():
-    data = request.get_json()
+    try:
+        data = request.get_json()
 
-    get_schema_request = await ledger.build_get_schema_request(request.university['did'], request.government["transcript_schema_id"])
-    get_schema_response = await ensure_previous_request_applied(
-        request.university['pool'], get_schema_request, lambda response: response['result']['data'] is not None)
-    (request.university['transcript_schema_id'], request.university['transcript_schema']) = await ledger.parse_get_schema_response(get_schema_response)
+        get_schema_request = await ledger.build_get_schema_request(request.university['did'], request.government["transcript_schema_id"])
+        get_schema_response = await ensure_previous_request_applied(
+            request.university['pool'], get_schema_request, lambda response: response['result']['data'] is not None)
+        (request.university['transcript_schema_id'], request.university['transcript_schema']) = await ledger.parse_get_schema_response(get_schema_response)
 
-    transcript_cred_def = {
-        'tag': request.transcript_cred_tag,
-        'type': request.transcript_cred_type,
-        'config': request.transcript_cred_config
-    }
-    (request.university['transcript_cred_def_id'], request.university['transcript_cred_def']) = \
-        await anoncreds.issuer_create_and_store_credential_def(request.university['wallet'], request.university['did'],
-                                                               request.university['transcript_schema'], transcript_cred_def['tag'],
-                                                               transcript_cred_def['type'],
-                                                               json.dumps(transcript_cred_def['config']))
-    
-    cred_def_request = await ledger.build_cred_def_request(request.university['did'], request.university['transcript_cred_def'])
+        transcript_cred_def = {
+            'tag': request.transcript_cred_tag,
+            'type': request.transcript_cred_type,
+            'config': request.transcript_cred_config
+        }
+        (request.university['transcript_cred_def_id'], request.university['transcript_cred_def']) = \
+            await anoncreds.issuer_create_and_store_credential_def(request.university['wallet'], request.university['did'],
+                                                                request.university['transcript_schema'], transcript_cred_def['tag'],
+                                                                transcript_cred_def['type'],
+                                                                json.dumps(transcript_cred_def['config']))
+        
+        cred_def_request = await ledger.build_cred_def_request(request.university['did'], request.university['transcript_cred_def'])
 
-    await ledger.sign_and_submit_request(request.university['pool'], request.university['wallet'], request.university['did'], cred_def_request)
+        await ledger.sign_and_submit_request(request.university['pool'], request.university['wallet'], request.university['did'], cred_def_request)
 
-    return jsonify({"status_code": 200, "detail": "Success"})
+        return jsonify({"status_code": 200, "detail": "Success"})
+    except Exception as e:
+        print(e)
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
