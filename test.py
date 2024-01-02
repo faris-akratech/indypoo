@@ -193,22 +193,25 @@ async def run():
 
 @app.route("/create_wallet", methods=["POST"])
 async def create_wallet():
-    data = request.get_json()
+    try: 
+        data = request.get_json()
 
-    steward = {
-        'name': data["name"],
-        'wallet_config': json.dumps({'id': data["wallet_config"]}),
-        'wallet_credentials': json.dumps({'key': data["wallet_credentials"]}),
-        'pool': pool_['handle'],
-        'seed': data["seed"]
-    }
+        steward = {
+            'name': data["name"],
+            'wallet_config': json.dumps({'id': data["wallet_config"]}),
+            'wallet_credentials': json.dumps({'key': data["wallet_credentials"]}),
+            'pool': pool_['handle'],
+            'seed': data["seed"]
+        }
 
-    create_wallet(steward)
+        create_wallet(steward)
 
-    steward["did_info"] = json.dumps({'seed': steward['seed']})
-    steward['did'], steward['key'] = await did.create_and_store_my_did(steward['wallet'], steward['did_info'])
+        steward["did_info"] = json.dumps({'seed': steward['seed']})
+        steward['did'], steward['key'] = await did.create_and_store_my_did(steward['wallet'], steward['did_info'])
 
-    return jsonify({"status_code": 200, "detail": steward})
+        return jsonify({"status_code": 200, "detail": steward})
+    except Exception as e:
+        print(e)
 
 @app.route("/register_dids_government", methods=["POST"])
 async def register_dids_government():
