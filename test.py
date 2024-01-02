@@ -204,7 +204,7 @@ async def create_wallet_1():
             'seed': data["seed"]
         }
 
-        create_wallet(steward)
+        await create_wallet(steward)
 
         steward["did_info"] = json.dumps({'seed': steward['seed']})
         steward['did'], steward['key'] = await did.create_and_store_my_did(steward['wallet'], steward['did_info'])
