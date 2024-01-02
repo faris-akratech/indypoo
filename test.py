@@ -192,7 +192,7 @@ async def run():
     print(pool_['handle'])
 
 @app.route("/create_wallet", methods=["POST"])
-async def create_wallet():
+async def create_wallet_1():
     try: 
         data = request.get_json()
 
