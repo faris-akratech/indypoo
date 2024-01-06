@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 import json
 from flask import Flask, request, jsonify
 
@@ -86,6 +87,7 @@ async def create_wallet(identity):
         await wallet.create_wallet(identity['wallet_config'],
                                    identity['wallet_credentials'])
     except IndyError as ex:
+        print(f"Error opening wallet: {ex.error_code} - {ex.message}")
         if ex.error_code == ErrorCode.PoolLedgerConfigAlreadyExistsError:
             pass
     identity['wallet'] = await wallet.open_wallet(identity['wallet_config'],
@@ -192,9 +194,11 @@ async def run():
     print(pool_['handle'])
 
 @app.route("/create_wallet", methods=["POST"])
-async def create_wallet_1():
+async def create_wallet_api():
+    print("1")
     try: 
         data = request.get_json()
+        print(data)
 
         steward = {
             'name': data["name"],
@@ -208,31 +212,37 @@ async def create_wallet_1():
 
         steward["did_info"] = json.dumps({'seed': steward['seed']})
         steward['did'], steward['key'] = await did.create_and_store_my_did(steward['wallet'], steward['did_info'])
-
+        print(steward)
         return jsonify({"status_code": 200, "detail": steward})
     except Exception as e:
-        print(e)
 
+        return {"status_code": 200, "detail": str(e)}
+
+# Register new account
 @app.route("/register_dids_government", methods=["POST"])
 async def register_dids_government():
-    try: 
+
+    try:
         data = request.get_json()
-
+        print(data)
         government = {
-            'name': data['name'],
-            'wallet_config': json.dumps({'id': data['wallet_config']}),
-            'wallet_credentials': json.dumps({'key': data['wallet_credentials']}),
+            # 'name': data['name'],
+            'name': 'Moltress',
+            "wallet_config": "{\"id\": \"Moltress_government_wallet\"}",
+            "wallet_credentials": "{\"key\": \"Moltress_government_wallet_key\"}",
             'pool': pool_['handle'],
-            'role': data['role']
+            'role': 'TRUST_ANCHOR',
         }
-
         # Assuming getting_verinym is a function that does the work
         await getting_verinym(data['steward'], government)
 
         return jsonify({"status_code": 200, "detail": "Success"})
     except Exception as e:
-        print(e)
+        print(f"Error in register_dids_government: {str(e)}")
+        print(traceback.format_exc()) 
+        return jsonify({"status_code": 500, "detail": f"Error: {str(e)}"})
 
+# Register new organization
 @app.route("/register_dids_university", methods=["POST"])
 async def register_dids_university():
     try:
@@ -252,7 +262,7 @@ async def register_dids_university():
     except Exception as e:
             print(e)
 
-
+# Register new verifier / organization
 @app.route("/register_dids_company", methods=["POST"])
 async def register_dids_company():
     try:
@@ -272,15 +282,18 @@ async def register_dids_company():
     except Exception as e:
         print(e)
 
+# Register new shema
 @app.route("/government_transcript_schema", methods=["POST"])
 async def government_transcript_schema():
     try:
         data = request.get_json()
-
+        schema_name = data.get('schemaName')
+        schema_version = data.get('schemaVersion')
+        attributes = data.get('attributes', [])
         transcript = {
-            'name': data['name'],
-            'version': data['version'],
-            'attributes': data['attributes']
+            'name': schema_name,
+            'version': schema_version,
+            'attributes': attributes
         }
 
         (request.government['transcript_schema_id'], request.government['transcript_schema']) = \
@@ -292,8 +305,10 @@ async def government_transcript_schema():
 
         return jsonify({"status_code": 200, "detail": "Success"})
     except Exception as e:
-        print(e)
+        print(f"Error in government_transcript_schema: {str(e)}")
+        return jsonify({"status_code": 500, "detail": f"Error: {str(e)}"})
 
+# Issue credential
 @app.route("/university_credential_definition", methods=["POST"])
 async def university_credential_definition():
     try:
@@ -326,4 +341,4 @@ async def university_credential_definition():
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run())
-    app.run(port=5000)
+    app.run(debug=True, port=5000)
